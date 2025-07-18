@@ -7,7 +7,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173"],
+    origin: ["http://localhost:5173", "https://cometchatapp.onrender.com"],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -25,23 +25,32 @@ io.on("connection", (socket) => {
   const userId = socket.handshake.query.userId;
   if (userId) {
     userSocketMap[userId] = socket.id;
-    console.log("🟢 Online users:", userSocketMap);
-    io.emit("getOnlineUsers", Object.keys(userSocketMap)); // broadcast
+    io.emit("getOnlineUsers", Object.keys(userSocketMap));
   }
 
-  socket.on("disconnect", () => {
-    console.log("❌ A user disconnected:", socket.id);
+  // ✨ Typing events
+  socket.on("typing", ({ receiverId }) => {
+    const receiverSocketId = userSocketMap[receiverId];
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("typing", { senderId: userId });
+    }
+  });
 
-    // remove from map
+  socket.on("stopTyping", ({ receiverId }) => {
+    const receiverSocketId = userSocketMap[receiverId];
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("stopTyping", { senderId: userId });
+    }
+  });
+
+  socket.on("disconnect", () => {
     for (const [key, value] of Object.entries(userSocketMap)) {
       if (value === socket.id) {
         delete userSocketMap[key];
         break;
       }
     }
-
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
-    console.log("🟡 Online users after disconnect:", userSocketMap);
   });
 });
 

@@ -1,5 +1,5 @@
 import { useChatStore } from "../store/useChatStore";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import ChatHeader from "./ChatHeader";
 import MessageInput from "./MessageInput";
@@ -15,13 +15,14 @@ const ChatContainer = () => {
     selectedUser,
     subscribeToMessages,
     unsubscribeFromMessages,
+    socket,
   } = useChatStore();
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
+  const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
     getMessages(selectedUser._id);
-
     subscribeToMessages();
 
     return () => unsubscribeFromMessages();
@@ -32,6 +33,24 @@ const ChatContainer = () => {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  // Listen for typing events
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("typing", ({ senderId }) => {
+      if (senderId === selectedUser._id) setIsTyping(true);
+    });
+
+    socket.on("stopTyping", ({ senderId }) => {
+      if (senderId === selectedUser._id) setIsTyping(false);
+    });
+
+    return () => {
+      socket.off("typing");
+      socket.off("stopTyping");
+    };
+  }, [socket, selectedUser]);
 
   if (isMessagesLoading) {
     return (
@@ -83,10 +102,22 @@ const ChatContainer = () => {
             </div>
           </div>
         ))}
+
+        {/* Typing indicator */}
+        {isTyping && (
+          <div className="chat chat-start">
+            <div className="chat-bubble bg-base-200 text-sm text-gray-400 flex items-center gap-1">
+              <span className="animate-bounce">●</span>
+              <span className="animate-bounce delay-150">●</span>
+              <span className="animate-bounce delay-300">●</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <MessageInput />
     </div>
   );
 };
+
 export default ChatContainer;
