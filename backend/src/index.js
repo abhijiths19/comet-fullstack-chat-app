@@ -14,25 +14,34 @@ dotenv.config();
 const PORT = process.env.PORT || 5001;
 const __dirname = path.resolve();
 
-// Increase body size limits for large image payloads
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 app.use(cookieParser());
 
-// Proper CORS configuration
+const allowedOrigins = [
+  "http://localhost:5173",             // local development
+  "https://cometchatapp.onrender.com" // deployed frontend
+];
+
 app.use(
   cors({
-    origin: "http://localhost:5173", // your frontend port
+    origin: function (origin, callback) {
+
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
 
-// API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 
-// Production build handling
+
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "../frontend/dist")));
 
@@ -41,7 +50,7 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-//  Start server and connect to DB
+
 server.listen(PORT, () => {
   console.log(`✅ Server is running on PORT: ${PORT}`);
   connectDB();
